@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klánháború - Mass Snipe Konvertáló (Dark Mode)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        h2 {
+            color: #e5a93c;
+            text-align: center;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        label {
+            color: #b0b0b0;
+        }
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 10px;
+            background-color: #1e1e1e;
+            color: #00ff66;
+            border: 2px solid #333;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        textarea:focus {
+            border-color: #e5a93c;
+        }
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            background-color: #382414;
+            color: #e5a93c;
+            border: 1px solid #e5a93c;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        button:hover {
+            background-color: #e5a93c;
+            color: #121212;
+        }
+        button.copy-btn {
+            background-color: #1b4332;
+            color: #52b788;
+            border: 1px solid #52b788;
+        }
+        button.copy-btn:hover {
+            background-color: #52b788;
+            color: #121212;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Mass Snipe Formázó</h2>
+
+    <div class="container">
+        <label for="inputText"><strong>Illeszd be a Klánháborús fórumról kimásolt bejövőket:</strong></label>
+        <textarea id="inputText" placeholder="Ide illeszd be közvetlenül a fórumról vagy BB-kódból kimásolt szöveget..."></textarea>
+
+        <div class="btn-container">
+            <button onclick="convertText()">Átalakítás</button>
+            <button class="copy-btn" onclick="copyOutput()">Másolás a vágólapra</button>
+        </div>
+
+        <label for="outputText"><strong>Eredmény (Mass Snipe kompatibilis formátum):</strong></label>
+        <textarea id="outputText" readonly></textarea>
+    </div>
+
+    <script>
+        function convertText() {
+            let input = document.getElementById("inputText").value;
+            let lines = input.split('\n');
+            let resultLines = [];
+
+            const monthMap = {
+                'jan.': 'Jan', 'feb.': 'Feb', 'márc.': 'Mar', 'ápr.': 'Apr',
+                'máj.': 'May', 'jún.': 'Jun', 'júl.': 'Jul', 'aug.': 'Aug',
+                'szept.': 'Sep', 'okt.': 'Oct', 'nov.': 'Nov', 'dec.': 'Dec',
+                'jan': 'Jan', 'feb': 'Feb', 'már': 'Mar', 'ápr': 'Apr',
+                'máj': 'May', 'jún': 'Jun', 'júl': 'Jul', 'aug': 'Aug',
+                'szep': 'Sep', 'okt': 'Oct', 'nov': 'Nov', 'dec': 'Dec'
+            };
+
+            for (let line of lines) {
+                let trimmed = line.trim();
+                if (!trimmed) continue;
+
+                // --- 1. FALU SOR FELDOLGOZÁSA ---
+                if (trimmed.toLowerCase().includes('falu:') || trimmed.toLowerCase().startsWith('village:')) {
+                    let coordMatch = trimmed.match(/(\d{3}\|\d{3})/);
+                    if (coordMatch) {
+                        resultLines.push(`Village: [coord]${coordMatch[1]}[/coord]`);
+                    }
+                    continue;
+                }
+
+                // --- 2. TÁMADÁSI SOR FELDOLGOZÁSA ---
+                // Megnézzük, hogy a sor tartalmaz-e érkezési időt vagy koordinátát
+                if (trimmed.includes('-->') || trimmed.includes('[command]attack[/command]') || trimmed.toLowerCase().includes('érkezés ideje:')) {
+                    
+                    let lineData = trimmed;
+
+                    // BB-kód tisztítása, ha be volt illesztve
+                    lineData = lineData.replace(/\|\s*sent[^|]+\|\s*return[^\s\[]+/gi, '');
+
+                    // Egységek cseréje (FN -> Noble, Kos -> Ram, Bárdos -> Axe)
+                    // Szóhatárokkal, hogy ne cseréljen bele játékosnevekbe véletlenül
+                    lineData = lineData.replace(/\bFN\b/g, 'Noble');
+                    lineData = lineData.replace(/\bKos\b/g, 'Ram');
+                    lineData = lineData.replace(/\bBárdos\b/g, 'Axe');
+
+                    // Érkezés ideje szöveg angolra
+                    lineData = lineData.replace(/Érkezés ideje:/gi, 'Arrival time:');
+
+                    // Hónapnevek cseréje
+                    for (let [hu, en] of Object.entries(monthMap)) {
+                        let reg = new RegExp('\\b' + hu, 'gi');
+                        lineData = lineData.replace(reg, en);
+                    }
+
+                    // Koordináták BB-kódosítása (ha sima fórumból lett másolva és még nincs [coord])
+                    lineData = lineData.replace(/(?<!\[coord\])(\d{3}\|\d{3})(?!\[\/coord\])/g, '[coord]$1[/coord]');
+
+                    // Kontinens megnevezés eltávolítása a koordináta mögül (pl: [coord]559|457[/coord] K45 -> [coord]559|457[/coord])
+                    lineData = lineData.replace(/(\[coord\]\d{3}\|\d{3}\[\/coord\])\s*K\d+/gi, '$1');
+
+                    // Játékosnév BB-kódosítása a sor végén (ha még nincs [player])
+                    // Pédául: "Arrival time: Aug 26, 2026 07:20:00:363 TrollFaceHumters" -> "[player]TrollFaceHumters[/player]"
+                    lineData = lineData.replace(/(Arrival time:\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}\s*[\d:]+)\s+([^\[\]]+)$/i, function(match, p1, p2) {
+                        let playerName = p2.trim();
+                        if (playerName && !playerName.includes('[player]')) {
+                            return `${p1} [player]${playerName}[/player]`;
+                        }
+                        return match;
+                    });
+
+                    // Ha hiányzik a [command]attack[/command] az elejéről, betesszük
+                    if (!lineData.includes('[command]attack[/command]')) {
+                        lineData = '[command]attack[/command] ' + lineData;
+                    }
+
+                    // Dupla szóközök letisztázása
+                    lineData = lineData.replace(/\s+/g, ' ');
+
+                    resultLines.push('    ' + lineData.trim());
+                }
+            }
+
+            document.getElementById("outputText").value = resultLines.join('\n');
+        }
+
+        function copyOutput() {
+            let outputText = document.getElementById("outputText");
+            outputText.select();
+            document.execCommand("copy");
+            alert("A formázott szöveg másolva a vágólapra!");
+        }
+    </script>
+
+</body>
+</html>
