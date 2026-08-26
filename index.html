@@ -144,11 +144,11 @@
                     // Koordináták BB-kódosítása (ha sima fórumból lett másolva és még nincs [coord])
                     lineData = lineData.replace(/(?<!\[coord\])(\d{3}\|\d{3})(?!\[\/coord\])/g, '[coord]$1[/coord]');
 
-                    // Kontinens megnevezés eltávolítása a koordináta mögül (pl: [coord]559|457[/coord] K45 -> [coord]559|457[/coord])
+                    // Kontinens megnevezés eltávolítása a koordináta mögül (pl: [coord]XXX|YYY[/coord] K45 -> [coord]XXX|YYY[/coord])
                     lineData = lineData.replace(/(\[coord\]\d{3}\|\d{3}\[\/coord\])\s*K\d+/gi, '$1');
 
                     // Játékosnév BB-kódosítása a sor végén (ha még nincs [player])
-                    // Pédául: "Arrival time: Aug 26, 2026 07:20:00:363 TrollFaceHumters" -> "[player]TrollFaceHumters[/player]"
+                    
                     lineData = lineData.replace(/(Arrival time:\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}\s*[\d:]+)\s+([^\[\]]+)$/i, function(match, p1, p2) {
                         let playerName = p2.trim();
                         if (playerName && !playerName.includes('[player]')) {
